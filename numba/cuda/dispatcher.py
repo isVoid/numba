@@ -331,15 +331,11 @@ class _Kernel(serialize.ReduceMixin):
 
             data = ctypes.c_void_p(ptr)
 
-            kernelargs.append(meminfo)
-            kernelargs.append(parent)
-            kernelargs.append(nitems)
-            kernelargs.append(itemsize)
-            kernelargs.append(data)
-            for ax in range(devary.ndim):
-                kernelargs.append(c_intp(devary.shape[ax]))
-            for ax in range(devary.ndim):
-                kernelargs.append(c_intp(devary.strides[ax]))
+            kernelargs += [
+                meminfo, parent, nitems, itemsize, data,
+                *[c_intp(devary.shape[ax]) for ax in range(devary.ndim)],
+                *[c_intp(devary.strides[ax]) for ax in range(devary.ndim)]
+            ]
 
         elif isinstance(ty, types.Integer):
             cval = getattr(ctypes, "c_%s" % ty)(val)
