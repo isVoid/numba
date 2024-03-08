@@ -181,10 +181,11 @@ class CUDACodeLibrary(serialize.ReduceMixin, CodeLibrary):
         if cubin:
             return cubin
 
-        linker = driver.Linker.new(max_registers=self._max_registers, cc=cc)
+        linker = driver.Linker.new(max_registers=self._max_registers, cc=cc,
+                                   lto=True)
 
-        ptx = self._get_ptx(cc=cc)
-        linker.add_ptx(ptx.encode())
+        ltoir = self.get_ltoir(cc=cc)
+        linker.add_ltoir(ltoir)
         for path in self._linking_files:
             linker.add_file_guess_ext(path)
         if self.needs_cudadevrt:
