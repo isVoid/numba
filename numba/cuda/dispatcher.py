@@ -80,6 +80,8 @@ class _Kernel(serialize.ReduceMixin):
             'fastmath': fastmath,
             'opt': 3 if opt else 0
         }
+        if link_lto:
+            nvvm_options['gen-lto'] = None
 
         cc = get_current_device().compute_capability
         cres = compile_cuda(self.py_func, types.void, self.argtypes,
@@ -101,21 +103,22 @@ class _Kernel(serialize.ReduceMixin):
         if not link:
             link = []
 
-        # A kernel needs cooperative launch if grid_sync is being used.
-        self.cooperative = 'cudaCGGetIntrinsicHandle' in lib.get_asm_str()
-        # We need to link against cudadevrt if grid sync is being used.
-        if self.cooperative:
-            lib.needs_cudadevrt = True
+        if not link_lto: # XXX: What should we do here? Compile kernel as LTO + cooporative launch?
+            # A kernel needs cooperative launch if grid_sync is being used.
+            self.cooperative = 'cudaCGGetIntrinsicHandle' in lib.get_asm_str()
+            # We need to link against cudadevrt if grid sync is being used.
+            if self.cooperative:
+                lib.needs_cudadevrt = True
 
-        res = [fn for fn in cuda_fp16_math_funcs
-               if (f'__numba_wrapper_{fn}' in lib.get_asm_str())]
+        # res = [fn for fn in cuda_fp16_math_funcs
+        #        if (f'__numba_wrapper_{fn}' in lib.get_asm_str())]
 
-        if res:
-            # Path to the source containing the foreign function
-            basedir = os.path.dirname(os.path.abspath(__file__))
-            functions_cu_path = os.path.join(basedir,
-                                             'cpp_function_wrappers.cu')
-            link.append(functions_cu_path)
+        # if res:
+        #     # Path to the source containing the foreign function
+        #     basedir = os.path.dirname(os.path.abspath(__file__))
+        #     functions_cu_path = os.path.join(basedir,
+        #                                      'cpp_function_wrappers.cu')
+        #     link.append(functions_cu_path)
 
         for filepath in link:
             lib.add_linking_file(filepath)

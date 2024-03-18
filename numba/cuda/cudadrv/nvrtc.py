@@ -171,6 +171,9 @@ class NVRTC:
         the source; this function returns ``True`` if there is a compilation
         error and ``False`` on success.
         """
+
+        print("nvrtc options:", options)
+
         # We hold a list of encoded options to ensure they can't be collected
         # prior to the call to nvrtcCompileProgram
         encoded_options = [opt.encode() for opt in options]
@@ -215,7 +218,7 @@ class NVRTC:
 
     def get_ltoir(self, program):
         """
-        Get the LTO IR as a bytearray.
+        Get the LTO IR as a bytes object.
         """
 
         ltoir_size = c_size_t()
@@ -251,13 +254,20 @@ def compile(src, name, cc, extra_cflags=[]):
     # - Relocatable Device Code (rdc) is needed to prevent device functions
     #   being optimized away.
     major, minor = cc
-    arch = f"--gpu-architecture=compute_{major}{minor}"
+    if as_ltoir:
+        arch = ""
+    else:    
+        arch = f"--gpu-architecture=compute_{major}{minor}"
     include = f"-I{config.CUDA_INCLUDE_PATH}"
 
     cudadrv_path = os.path.dirname(os.path.abspath(__file__))
     numba_cuda_path = os.path.dirname(cudadrv_path)
     numba_include = f"-I{numba_cuda_path}"
-    options = [arch, include, numba_include, *extra_cflags, "-rdc", "true"]
+
+    if as_ltoir:
+        options = [include, numba_include, *extra_cflags, "-rdc=true"]
+    else:
+        options = [arch, include, numba_include, *extra_cflags, "-rdc=true"]
 
     # Compile the program
     compile_error = nvrtc.compile_program(program, options)
@@ -275,10 +285,11 @@ def compile(src, name, cc, extra_cflags=[]):
         msg = f"NVRTC log messages whilst compiling {name}:\n\n{log}"
         warnings.warn(msg)
 
-    breakpoint()
     if not as_ltoir:
         ptx = nvrtc.get_ptx(program)
         return ptx, log
     else:
         ltoir = nvrtc.get_ltoir(program)
+        with open("/home/wangm/numbast/scratch/031124/extern.ltoir", "wb") as f:
+            f.write(ltoir)
         return ltoir, log
